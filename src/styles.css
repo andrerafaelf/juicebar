@@ -1,0 +1,89 @@
+/* Windows 11 flyout look. The window itself is transparent with Mica/Acrylic behind it;
+   these tokens add a light tint on top so text stays readable on any wallpaper. */
+:root {
+  color-scheme: light dark;
+  --surface: rgb(243 243 243 / 0.72);
+  --surface-solid: #f3f3f3;
+  --card: rgb(255 255 255 / 0.62);
+  --card-hover: rgb(255 255 255 / 0.85);
+  --card-border: rgb(0 0 0 / 0.06);
+  --control: rgb(255 255 255 / 0.7);
+  --control-hover: rgb(0 0 0 / 0.05);
+  --track: rgb(0 0 0 / 0.09);
+  --line: rgb(0 0 0 / 0.1);
+  --text: #1a1a1a;
+  --text-2: rgb(0 0 0 / 0.62);
+  --text-3: rgb(0 0 0 / 0.42);
+  --focus: #005fb8;
+  --on-accent: #ffffff;
+  --logo-fill: rgb(255 255 255 / 0.95);
+  --ok: #0f7b45;
+  --warn: #b25e00;
+  --low: #c42b1c;
+  --charging: #0f7b45;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: rgb(32 32 32 / 0.7);
+    --surface-solid: #202020;
+    --card: rgb(255 255 255 / 0.05);
+    --card-hover: rgb(255 255 255 / 0.085);
+    --card-border: rgb(255 255 255 / 0.06);
+    --control: rgb(255 255 255 / 0.06);
+    --control-hover: rgb(255 255 255 / 0.08);
+    --track: rgb(255 255 255 / 0.12);
+    --line: rgb(255 255 255 / 0.12);
+    --text: #ffffff;
+    --text-2: rgb(255 255 255 / 0.68);
+    --text-3: rgb(255 255 255 / 0.42);
+    --focus: #60cdff;
+    --on-accent: #0b0b0b;
+    --logo-fill: rgb(0 0 0 / 0.55);
+    --ok: #6ccb5f;
+    --warn: #fcbc4a;
+    --low: #ff99a4;
+    --charging: #6ccb5f;
+  }
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+body {
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+input,
+select,
+textarea {
+  user-select: text;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--track);
+  border-radius: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
