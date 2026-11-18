@@ -37,7 +37,7 @@ pub struct Settings {
     /// Custom display names, keyed by device key.
     pub aliases: Vec<(String, String)>,
     pub headsetcontrol_path: Option<String>,
-    /// Minutes between Logitech G435 reads (each pauses its audio briefly); 0 = off.
+    /// Minutes between Logitech G435 reads (only while its audio is idle); 0 = off.
     pub g435_minutes: u32,
 }
 

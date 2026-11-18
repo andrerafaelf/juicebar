@@ -195,7 +195,7 @@
               <span class="icon"><Icon name="headset" /></span>
               <div class="label">
                 <strong>Logitech G435</strong>
-                <small>Each check pauses its audio for ~0.5 s</small>
+                <small>Checks only while the headset is silent</small>
               </div>
               <Segmented
                 label="Logitech G435 check interval"

@@ -79,7 +79,7 @@ Measured on Windows 11 with a release build:
 | Source | Devices | How |
 |---|---|---|
 | **Logitech HID++ 2.0** | Unifying, Bolt, Lightspeed and Nano receivers; Bluetooth/wired MX & G series | Features `0x1004` Unified Battery, `0x1000` Battery Status, `0x1001` Voltage; device name & unit id for de-duplication |
-| **Logitech G435** | G435 LIGHTSPEED headset (`046D:0ACB`, `046D:0ADF` dongles) | Vendor bridge to the dongle's radio SoC, battery voltage → % (≈5 % steps). Each read pauses the headset audio for ~0.5 s, so it runs every 10 min by default (configurable, or off) |
+| **Logitech G435** | G435 LIGHTSPEED headset (`046D:0ACB`, `046D:0ADF` dongles) | Vendor bridge to the dongle's radio SoC, battery voltage → % (≈5 % steps). A read pauses the headset audio for ~0.5 s, so it only runs while nothing plays or records through the headset, at most every 10 min by default (configurable, or off) |
 | **Razer** | Wireless mice/keyboards and their dongles | 90-byte feature-report protocol, class `0x07` (battery `0x80`, charging `0x84`) |
 | **Sony** | DualShock 4, DualSense, DualSense Edge (USB + Bluetooth) | Status byte in the input report |
 | **SONiX dongles** | AJAZZ / AULA 2.4 GHz keyboards (`05AC:024F`, `0C45:FEFE`) | 32-byte raw-HID query |

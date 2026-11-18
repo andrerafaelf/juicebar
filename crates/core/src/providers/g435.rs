@@ -6,9 +6,9 @@
 //!   bridge must be put in "bootloader" mode (`06 01 03`), commands are passed with
 //!   `06 04 03 <len16> <cmd>` as 514-byte output reports, replies are polled with
 //!   GET_FEATURE, and `06 08 03` leaves the mode again. The dongle firmware pauses the
-//!   audio streams while in that mode, so a read costs roughly half a second of audio:
-//!   this provider therefore reads rarely (configurable) and reports the cached value
-//!   in between.
+//!   audio streams while in that mode (about half a second), so this provider only reads
+//!   while the headset's audio endpoints have no active session, at most once per
+//!   interval, and reports the cached value in between.
 //! * `046D:0ADF`: vendor collection 0xFF00, plain 64-byte frames with a CRC-16.
 //!
 //! SoC commands are `"PA" <category> <seq> <len> <command…>`, replies start with "PI".
@@ -19,7 +19,8 @@
 //! Protocol research: endes ("USB HID down the rabbit hole: Logitech G435 dongle"),
 //! deddroid/logitech-g435-battery and portyporty/g435-battery-percentage (MIT).
 
-use super::{PollContext, Provider};
+use super::{path_of, PollContext, Provider};
+use crate::audio_activity::device_audio_busy;
 use crate::model::{Battery, Charge, DeviceKind, Reading, Transport};
 use crate::util::lipo_percent;
 use hidapi::{DeviceInfo, HidDevice};
@@ -312,7 +313,9 @@ impl Provider for G435 {
         };
         let Some(interval) = self.interval else { return vec![] };
 
-        if self.due(ctx.full_scan) {
+        // A read pauses the headset audio, so it only happens while nothing plays or
+        // records through it. Until then the cached value stays and every poll retries.
+        if self.due(ctx.full_scan) && !device_audio_busy(&path_of(info)) {
             self.last_try = Some(Instant::now());
             let result = match info.open_device(api) {
                 Ok(dev) if info.product_id() == PID_ACB => acb::read_millivolts(&dev),

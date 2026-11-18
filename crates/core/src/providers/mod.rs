@@ -82,8 +82,8 @@ pub struct ProviderOptions {
     pub headsetcontrol_path: Option<PathBuf>,
     /// Replace every real provider with simulated devices (UI development, screenshots).
     pub demo: bool,
-    /// How often to read a Logitech G435 (each read pauses its audio for about half a
-    /// second). `None` disables it.
+    /// Minimum time between Logitech G435 reads. A read pauses the headset audio, so it
+    /// only happens while the headset is silent. `None` disables it.
     pub g435_interval: Option<Duration>,
 }
 

@@ -12,6 +12,7 @@
 //! }
 //! ```
 
+pub mod audio_activity;
 pub mod hid_descriptor;
 pub mod history;
 pub mod model;
