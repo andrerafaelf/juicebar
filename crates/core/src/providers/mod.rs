@@ -53,19 +53,8 @@ impl PollContext<'_> {
 }
 
 /// Every provider id, used to restore persisted devices.
-pub const SOURCE_IDS: [&str; 11] = [
-    "logitech-hidpp",
-    "razer",
-    "playstation",
-    "sonix",
-    "headsetcontrol",
-    "xinput",
-    "bluetooth",
-    "airpods",
-    "hid-battery",
-    "sysfs",
-    "demo",
-];
+pub const SOURCE_IDS: [&str; 11] =
+    ["logitech-hidpp", "razer", "playstation", "sonix", "headsetcontrol", "xinput", "bluetooth", "airpods", "hid-battery", "sysfs", "demo"];
 
 pub trait Provider {
     /// Short stable id, shown in the UI as the data source.

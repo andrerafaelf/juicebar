@@ -19,9 +19,7 @@ use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 use std::sync::{Mutex, OnceLock};
 use windows::core::{w, PCWSTR};
 use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, POINT, RECT, SIZE, WPARAM};
-use windows::Win32::Graphics::Direct2D::Common::{
-    D2D1_ALPHA_MODE_PREMULTIPLIED, D2D1_COLOR_F, D2D1_PIXEL_FORMAT, D2D_RECT_F,
-};
+use windows::Win32::Graphics::Direct2D::Common::{D2D1_ALPHA_MODE_PREMULTIPLIED, D2D1_COLOR_F, D2D1_PIXEL_FORMAT, D2D_RECT_F};
 use windows::Win32::Graphics::Direct2D::*;
 use windows::Win32::Graphics::DirectWrite::*;
 use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -171,8 +169,7 @@ fn run() {
         let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         let Ok(module) = GetModuleHandleW(None) else { return };
         let hinstance = module.into();
-        let procs: [(PCWSTR, WNDPROC); 2] =
-            [(w!("JuicebarHost"), Some(host_proc)), (w!("JuicebarTaskbarWidget"), Some(widget_proc))];
+        let procs: [(PCWSTR, WNDPROC); 2] = [(w!("JuicebarHost"), Some(host_proc)), (w!("JuicebarTaskbarWidget"), Some(widget_proc))];
         for (name, proc) in procs {
             let class = WNDCLASSEXW {
                 cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
@@ -184,9 +181,20 @@ fn run() {
             };
             RegisterClassExW(&class);
         }
-        let Ok(host) =
-            CreateWindowExW(WINDOW_EX_STYLE(0), w!("JuicebarHost"), w!("Juicebar"), WS_POPUP, 0, 0, 0, 0, None, None, Some(hinstance), None)
-        else {
+        let Ok(host) = CreateWindowExW(
+            WINDOW_EX_STYLE(0),
+            w!("JuicebarHost"),
+            w!("Juicebar"),
+            WS_POPUP,
+            0,
+            0,
+            0,
+            0,
+            None,
+            None,
+            Some(hinstance),
+            None,
+        ) else {
             return;
         };
         HOST.store(host.0 as isize, Ordering::SeqCst);
@@ -504,10 +512,8 @@ impl Gfx {
         unsafe {
             let d2d: ID2D1Factory = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, None)?;
             let dwrite: IDWriteFactory = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED)?;
-            let icon_family =
-                if has_font(&dwrite, w!("Segoe Fluent Icons")) { w!("Segoe Fluent Icons") } else { w!("Segoe MDL2 Assets") };
-            let text_family =
-                if has_font(&dwrite, w!("Segoe UI Variable Text")) { w!("Segoe UI Variable Text") } else { w!("Segoe UI") };
+            let icon_family = if has_font(&dwrite, w!("Segoe Fluent Icons")) { w!("Segoe Fluent Icons") } else { w!("Segoe MDL2 Assets") };
+            let text_family = if has_font(&dwrite, w!("Segoe UI Variable Text")) { w!("Segoe UI Variable Text") } else { w!("Segoe UI") };
             let fmt = |family: PCWSTR, size: f32, weight: DWRITE_FONT_WEIGHT| -> windows::core::Result<IDWriteTextFormat> {
                 let f = dwrite.CreateTextFormat(
                     family,
