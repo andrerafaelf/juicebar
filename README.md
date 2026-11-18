@@ -96,6 +96,10 @@ Run `juicebar-cli --dump` to see what each HID interface exposes. Most vendor pr
 
 Download `Juicebar_x.y.z_x64-setup.exe` from [Releases](../../releases). It installs per user, needs no admin rights, and puts an entry in the Start menu. An `.msi` is also provided.
 
+Juicebar keeps itself up to date: about a minute after it starts, and every 6 hours after that, it checks the latest release, verifies its signature and installs it silently, then restarts. Versions before 0.1.1 have no updater, so update those once by hand.
+
+Releases: push a `v*` tag, then publish the draft release. Its `latest.json` is what installed copies read, so a draft is not offered to anyone. The `TAURI_SIGNING_PRIVATE_KEY` repository secret must hold the updater key that matches the `pubkey` in `tauri.conf.json`.
+
 > The installer is not code-signed yet. Windows SmartScreen may warn: choose **More info → Run anyway**. On PCs with *Smart App Control* enabled, unsigned apps cannot run at all until the build is signed.
 
 ## Architecture

@@ -4,6 +4,7 @@ mod icon;
 mod popup;
 mod settings;
 mod tray;
+mod updater;
 #[cfg(windows)]
 mod widget;
 
@@ -228,6 +229,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| popup::show(app, None)))
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec!["--background"])))
         .invoke_handler(tauri::generate_handler![
             get_snapshot,
@@ -272,6 +274,7 @@ pub fn run() {
             tray::init(app.handle())?;
             #[cfg(windows)]
             start_widget(app.handle());
+            updater::spawn(app.handle().clone());
             if !background {
                 popup::show(app.handle(), None);
             }

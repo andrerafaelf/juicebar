@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Juicebar",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "dev.juicebar.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -19,6 +19,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "msi"],
+    "createUpdaterArtifacts": true,
     "category": "Utility",
     "shortDescription": "Battery levels of your wireless devices, in the taskbar",
     "longDescription": "Juicebar shows the battery level of wireless mice, keyboards, headsets, earbuds and controllers in the Windows notification area.",
@@ -27,6 +28,13 @@
     "windows": {
       "nsis": { "installMode": "currentUser" },
       "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY0MTI4QTg4OThEOTg0NTkKUldSWmhObVlpSW9TWkZ0MHlrVEhGNHJWRzdRQWpOYVRlMUpyVDVwZHZKOFlybEJBUmVWbzIzUDIK",
+      "endpoints": ["https://github.com/andrerafaelf/juicebar/releases/latest/download/latest.json"],
+      "windows": { "installMode": "quiet" }
     }
   }
 }
