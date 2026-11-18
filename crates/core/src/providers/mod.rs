@@ -7,8 +7,10 @@
 use crate::model::Reading;
 use std::collections::HashSet;
 use std::path::PathBuf;
+use std::time::Duration;
 
 pub mod demo;
+pub mod g435;
 pub mod generic_hid;
 pub mod headsetcontrol;
 pub mod logitech;
@@ -53,8 +55,20 @@ impl PollContext<'_> {
 }
 
 /// Every provider id, used to restore persisted devices.
-pub const SOURCE_IDS: [&str; 11] =
-    ["logitech-hidpp", "razer", "playstation", "sonix", "headsetcontrol", "xinput", "bluetooth", "airpods", "hid-battery", "sysfs", "demo"];
+pub const SOURCE_IDS: [&str; 12] = [
+    "logitech-hidpp",
+    "g435",
+    "razer",
+    "playstation",
+    "sonix",
+    "headsetcontrol",
+    "xinput",
+    "bluetooth",
+    "airpods",
+    "hid-battery",
+    "sysfs",
+    "demo",
+];
 
 pub trait Provider {
     /// Short stable id, shown in the UI as the data source.
@@ -62,21 +76,31 @@ pub trait Provider {
     fn poll(&mut self, ctx: &mut PollContext) -> Vec<Reading>;
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ProviderOptions {
     /// Explicit path to the HeadsetControl executable. Searched on PATH when `None`.
     pub headsetcontrol_path: Option<PathBuf>,
     /// Replace every real provider with simulated devices (UI development, screenshots).
     pub demo: bool,
+    /// How often to read a Logitech G435 (each read pauses its audio for about half a
+    /// second). `None` disables it.
+    pub g435_interval: Option<Duration>,
+}
+
+impl Default for ProviderOptions {
+    fn default() -> Self {
+        Self { headsetcontrol_path: None, demo: false, g435_interval: Some(Duration::from_secs(600)) }
+    }
 }
 
 pub fn default_providers(opts: &ProviderOptions) -> Vec<Box<dyn Provider>> {
     if opts.demo {
-        return vec![Box::new(demo::Demo)];
+        return vec![Box::new(demo::Demo::default())];
     }
     // Order matters: dedicated drivers first, generic fallbacks last.
     let mut v: Vec<Box<dyn Provider>> = vec![
         Box::new(logitech::Logitech::default()),
+        Box::new(g435::G435::new(opts.g435_interval)),
         Box::new(razer::Razer::default()),
         Box::new(playstation::PlayStation::default()),
         Box::new(sonix::Sonix::default()),
