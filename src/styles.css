@@ -11,6 +11,11 @@
   --control-hover: rgb(0 0 0 / 0.05);
   --track: rgb(0 0 0 / 0.09);
   --line: rgb(0 0 0 / 0.1);
+  --line-soft: rgb(0 0 0 / 0.06);
+  --thumb-ring: #ffffff;
+  --taskbar: #e9edf2;
+  --taskbar-text: #1a1a1a;
+  --taskbar-edge: rgb(255 255 255 / 0.8);
   --text: #1a1a1a;
   --text-2: rgb(0 0 0 / 0.62);
   --text-3: rgb(0 0 0 / 0.42);
@@ -34,6 +39,11 @@
     --control-hover: rgb(255 255 255 / 0.08);
     --track: rgb(255 255 255 / 0.12);
     --line: rgb(255 255 255 / 0.12);
+    --line-soft: rgb(0 0 0 / 0.28);
+    --thumb-ring: #454545;
+    --taskbar: #1c1c1c;
+    --taskbar-text: #ffffff;
+    --taskbar-edge: rgb(255 255 255 / 0.07);
     --text: #ffffff;
     --text-2: rgb(255 255 255 / 0.68);
     --text-3: rgb(255 255 255 / 0.42);
@@ -71,12 +81,23 @@ textarea {
   user-select: text;
 }
 
+/* Slim, unobtrusive scrollbar (no arrow buttons, transparent track). */
 ::-webkit-scrollbar {
   width: 6px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--track);
   border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-3);
+}
+::-webkit-scrollbar-button {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -69,4 +69,5 @@ export interface Settings {
   hidden: string[];
   aliases: [string, string][];
   headsetcontrolPath: string | null;
+  g435Minutes: number;
 }

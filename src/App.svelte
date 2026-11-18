@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { cubicOut } from "svelte/easing";
+  import { fly } from "svelte/transition";
   import { api } from "./lib/api";
   import { ago } from "./lib/format";
   import type { Settings, Snapshot } from "./lib/types";
@@ -27,8 +29,14 @@
   let hiddenCount = $derived(snapshot.devices.filter((d) => settings?.hidden.includes(d.key)).length);
   let online = $derived(visible.filter((d) => d.online).length);
 
+  // Settings apply instantly in the UI; the backend's sanitized copy is adopted only if
+  // no newer change was made in the meantime.
+  let saveSeq = 0;
   async function save(next: Settings) {
-    settings = await api.saveSettings(next);
+    settings = next;
+    const seq = ++saveSeq;
+    const saved = await api.saveSettings(next);
+    if (seq === saveSeq) settings = saved;
   }
 
   async function refresh() {
@@ -80,8 +88,16 @@
       }
     };
     window.addEventListener("keydown", onKey);
-    // Size the native window to the content.
-    const ro = new ResizeObserver(() => api.fit(Math.ceil(content.getBoundingClientRect().height)));
+    // Size the native window to the content, at most once per frame and only on change.
+    let frame = 0;
+    let sent = 0;
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const h = Math.ceil(content.getBoundingClientRect().height);
+        if (h !== sent) api.fit((sent = h));
+      });
+    });
     ro.observe(content);
     return () => {
       unlisten.then((f) => f());
@@ -93,11 +109,13 @@
   });
 </script>
 
-<main bind:this={content}>
+<main bind:this={content} class:full={view === "settings"}>
   <header>
     {#if view === "settings"}
-      <button class="icon-btn" onclick={() => (view = "devices")} aria-label="Back"><Icon name="back" /></button>
-      <h1>Settings</h1>
+      <div class="brand" in:fly={{ x: 8, duration: 160 }}>
+        <button class="icon-btn back" onclick={() => (view = "devices")} aria-label="Back"><Icon name="back" /></button>
+        <h1>Settings</h1>
+      </div>
     {:else}
       <div class="brand">
         <span class="logo" aria-hidden="true"></span>
@@ -124,6 +142,8 @@
   </header>
 
   <div class="body">
+    {#key view}
+    <div class="view" in:fly={{ y: 6, duration: 180, easing: cubicOut }}>
     {#if view === "settings" && settings}
       <SettingsView
         {settings}
@@ -131,7 +151,10 @@
         {autostart}
         {version}
         onsave={save}
-        onautostart={async (on) => (autostart = await api.setAutostart(on))}
+        onautostart={async (on) => {
+          autostart = on;
+          autostart = await api.setAutostart(on);
+        }}
         onquit={() => api.quit()}
       />
     {:else if visible.length}
@@ -167,21 +190,35 @@
         {showHidden ? "Hide" : "Show"} {hiddenCount} hidden device{hiddenCount === 1 ? "" : "s"}
       </button>
     {/if}
+    </div>
+    {/key}
   </div>
 </main>
 
 <style>
+  /* Keep in sync with popup::MAX_HEIGHT. Settings always use the full height so
+     switching to them resizes the window once, not as sections render. */
   main {
     display: flex;
     flex-direction: column;
-    max-height: 640px;
+    max-height: 600px;
   }
+  main.full {
+    height: 600px;
+  }
+  /* Same height in both views so the content below never shifts. */
   header {
+    flex: none;
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 14px 14px 10px 16px;
+    height: 60px;
+    box-sizing: border-box;
+    padding: 4px 12px 0 16px;
     -webkit-app-region: drag;
+  }
+  .back {
+    margin-left: -6px;
   }
   header :global(button) {
     -webkit-app-region: no-drag;
@@ -221,9 +258,6 @@
     font-weight: 650;
     letter-spacing: -0.01em;
   }
-  header > h1 {
-    flex: 1;
-  }
   .brand p {
     margin: 1px 0 0;
     font-size: 11.5px;
@@ -254,9 +288,12 @@
   }
 
   .body {
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
-    padding: 0 10px 12px;
-    scrollbar-width: thin;
+    /* Reserve the scrollbar's room in both views so widths never jump. */
+    scrollbar-gutter: stable;
+    padding: 0 4px 12px 10px;
   }
   .list {
     display: grid;

@@ -38,6 +38,7 @@ export const transportLabel: Record<Transport, string> = {
 
 export const sourceLabel: Record<string, string> = {
   "logitech-hidpp": "Logitech HID++",
+  g435: "G435 dongle bridge",
   razer: "Razer protocol",
   playstation: "PlayStation report",
   sonix: "SONiX dongle",

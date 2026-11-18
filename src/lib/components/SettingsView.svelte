@@ -1,5 +1,10 @@
 <script lang="ts">
+  import { slide } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
   import Icon from "./Icon.svelte";
+  import Segmented from "./Segmented.svelte";
+  import Toggle from "./Toggle.svelte";
+  import WidgetPreview, { type PreviewItem } from "./WidgetPreview.svelte";
   import type { Device, Settings, TrayMode } from "../types";
 
   let {
@@ -20,172 +25,304 @@
     onquit: () => void;
   } = $props();
 
-  const intervals = [
-    [30, "30 seconds"],
-    [60, "1 minute"],
-    [120, "2 minutes"],
-    [300, "5 minutes"],
-  ] as const;
-
   function patch(p: Partial<Settings>) {
     onsave({ ...settings, ...p });
   }
 
+  let advanced = $state(false);
+  let hscPath = $state("");
+  $effect.pre(() => {
+    hscPath = settings.headsetcontrolPath ?? "";
+  });
+
+  // The style picker previews the user's own devices (or a sample set before any is found).
+  const sample: PreviewItem[] = [
+    { kind: "mouse", name: "Mouse", level: 72, low: false, charging: false },
+    { kind: "keyboard", name: "Keyboard", level: 88, low: false, charging: false },
+    { kind: "headset", name: "Headset", level: 14, low: true, charging: false },
+  ];
+  let preview = $derived.by((): PreviewItem[] => {
+    const own = devices
+      .filter((d) => d.online && !settings.hidden.includes(d.key))
+      .slice(0, 3)
+      .map((d) => ({
+        kind: d.kind,
+        name: d.name,
+        level: d.level,
+        low: d.level <= settings.lowThreshold,
+        charging: d.charge === "charging",
+      }));
+    return own.length ? own : sample;
+  });
+
+  const styles = [
+    ["detailed", "Detailed"],
+    ["compact", "Minimal"],
+  ] as const;
+  const thresholds = [10, 15, 20, 30];
+  let thresholdOptions = $derived(
+    [...new Set([...thresholds, settings.lowThreshold])]
+      .sort((a, b) => a - b)
+      .map((v): [number, string] => [v, `${v}%`]),
+  );
+
   let hiddenDevices = $derived(
     settings.hidden.map((key) => ({ key, name: devices.find((d) => d.key === key)?.name ?? key })),
   );
-  let hscPath = $state("");
-  $effect(() => {
-    hscPath = settings.headsetcontrolPath ?? "";
-  });
+  let hasG435 = $derived(devices.some((d) => d.source === "g435") || settings.g435Minutes !== 10);
 </script>
 
 <div class="settings">
   <section>
-    <h3>General</h3>
-    <label class="row">
-      <span><strong>Start with Windows</strong><small>Runs quietly in the notification area</small></span>
-      <input type="checkbox" class="switch" checked={autostart} onchange={(e) => onautostart(e.currentTarget.checked)} />
-    </label>
-    <label class="row">
-      <span><strong>Taskbar widget</strong><small>Levels next to the clock, inside the taskbar</small></span>
-      <input type="checkbox" class="switch" checked={settings.taskbarWidget} onchange={(e) => patch({ taskbarWidget: e.currentTarget.checked })} />
-    </label>
-    {#if settings.taskbarWidget}
+    <h3>Taskbar</h3>
+    <div class="group">
       <div class="row">
-        <span><strong>Widget style</strong><small>Name and gauge, or just the percentage</small></span>
-        <div class="segmented" role="radiogroup" aria-label="Widget style">
-          {#each [["detailed", "Detailed"], ["compact", "Compact"]] as [value, label]}
-            <button
-              role="radio"
-              aria-checked={settings.widgetStyle === value}
-              class:on={settings.widgetStyle === value}
-              onclick={() => patch({ widgetStyle: value as Settings["widgetStyle"] })}>{label}</button
-            >
-          {/each}
-        </div>
+        <span class="icon"><Icon name="taskbar" /></span>
+        <div class="label"><strong>Show levels in the taskbar</strong></div>
+        <Toggle label="Taskbar widget" checked={settings.taskbarWidget} onchange={(v) => patch({ taskbarWidget: v })} />
       </div>
-    {/if}
-    <div class="row">
-      <span><strong>Tray icon</strong><small>{settings.taskbarWidget ? "Shown anyway if the widget can't attach" : "Lowest battery, or one per device"}</small></span>
-      <div class="segmented" role="radiogroup" aria-label="Tray icon mode">
-        {#each [["off", "Off"], ["single", "Lowest"], ["per-device", "Each"]] as [value, label]}
+      <div class="styles" class:disabled={!settings.taskbarWidget} role="radiogroup" aria-label="Widget style">
+        {#each styles as [value, label] (value)}
           <button
+            class="style"
+            class:on={settings.widgetStyle === value}
             role="radio"
-            aria-checked={settings.trayMode === value}
-            class:on={settings.trayMode === value}
-            onclick={() => patch({ trayMode: value as TrayMode })}>{label}</button
+            aria-checked={settings.widgetStyle === value}
+            disabled={!settings.taskbarWidget}
+            onclick={() => patch({ widgetStyle: value })}
           >
+            <WidgetPreview style={value} items={value === "compact" ? preview : preview.slice(0, 2)} />
+            <span class="caption">
+              {label}
+              <span class="tick"><Icon name="check" size={11} stroke={2.6} /></span>
+            </span>
+          </button>
         {/each}
       </div>
     </div>
-    <label class="row">
-      <span><strong>Show asleep devices</strong><small>Keep last known level for 24 h</small></span>
-      <input type="checkbox" class="switch" checked={settings.showOffline} onchange={(e) => patch({ showOffline: e.currentTarget.checked })} />
-    </label>
-    <label class="row">
-      <span><strong>Check every</strong></span>
-      <select value={settings.pollSeconds} onchange={(e) => patch({ pollSeconds: Number(e.currentTarget.value) })}>
-        {#each intervals as [v, l]}<option value={v}>{l}</option>{/each}
-      </select>
-    </label>
   </section>
 
   <section>
-    <h3>Notifications</h3>
-    <label class="row">
-      <span><strong>Low battery</strong><small>Alert at {settings.lowThreshold}% or below</small></span>
-      <input type="checkbox" class="switch" checked={settings.notifyLow} onchange={(e) => patch({ notifyLow: e.currentTarget.checked })} />
-    </label>
-    <div class="row slider">
-      <input
-        type="range"
-        min="5"
-        max="50"
-        step="5"
-        value={settings.lowThreshold}
-        aria-label="Low battery threshold"
-        oninput={(e) => patch({ lowThreshold: Number(e.currentTarget.value) })}
-      />
-      <span class="value">{settings.lowThreshold}%</span>
-    </div>
-    <label class="row">
-      <span><strong>Fully charged</strong><small>Tell me when I can unplug</small></span>
-      <input type="checkbox" class="switch" checked={settings.notifyFull} onchange={(e) => patch({ notifyFull: e.currentTarget.checked })} />
-    </label>
-  </section>
-
-  <section>
-    <h3>Advanced</h3>
-    <div class="row column">
-      <span><strong>HeadsetControl</strong><small>Adds SteelSeries, Corsair, HyperX and more headsets. Leave empty to search PATH.</small></span>
-      <input
-        type="text"
-        placeholder="C:\Tools\headsetcontrol.exe"
-        bind:value={hscPath}
-        onchange={() => patch({ headsetcontrolPath: hscPath.trim() || null })}
-      />
-    </div>
-    {#if hiddenDevices.length}
-      <div class="row column">
-        <span><strong>Hidden devices</strong></span>
-        <ul>
-          {#each hiddenDevices as h}
-            <li>
-              <span>{h.name}</span>
-              <button class="link" onclick={() => patch({ hidden: settings.hidden.filter((k) => k !== h.key) })}>
-                <Icon name="show" size={14} /> Show
-              </button>
-            </li>
-          {/each}
-        </ul>
+    <h3>Alerts</h3>
+    <div class="group">
+      <div class="row">
+        <span class="icon"><Icon name="bell" /></span>
+        <div class="label">
+          <strong>Low battery</strong>
+          <small>Notify once when a device drops this low</small>
+        </div>
+        <Toggle label="Low battery alert" checked={settings.notifyLow} onchange={(v) => patch({ notifyLow: v })} />
       </div>
-    {/if}
+      <div class="row sub" class:disabled={!settings.notifyLow}>
+        <span class="icon"></span>
+        <div class="label"><small>Alert at</small></div>
+        <Segmented
+          label="Low battery threshold"
+          disabled={!settings.notifyLow}
+          value={settings.lowThreshold}
+          options={thresholdOptions}
+          onchange={(v) => patch({ lowThreshold: v })}
+        />
+      </div>
+      <div class="row">
+        <span class="icon"><Icon name="bolt" /></span>
+        <div class="label">
+          <strong>Fully charged</strong>
+          <small>Tell me when I can unplug</small>
+        </div>
+        <Toggle label="Fully charged alert" checked={settings.notifyFull} onchange={(v) => patch({ notifyFull: v })} />
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h3>General</h3>
+    <div class="group">
+      <div class="row">
+        <span class="icon"><Icon name="clock" /></span>
+        <div class="label"><strong>Check every</strong></div>
+        <Segmented
+          label="Check every"
+          value={settings.pollSeconds}
+          options={[
+            [30, "30s"],
+            [60, "1m"],
+            [120, "2m"],
+            [300, "5m"],
+          ]}
+          onchange={(v) => patch({ pollSeconds: v })}
+        />
+      </div>
+      <div class="row">
+        <span class="icon"><Icon name="sleep" /></span>
+        <div class="label">
+          <strong>Keep asleep devices</strong>
+          <small>Dimmed, with their last level</small>
+        </div>
+        <Toggle label="Keep asleep devices" checked={settings.showOffline} onchange={(v) => patch({ showOffline: v })} />
+      </div>
+      <div class="row">
+        <span class="icon"><Icon name="login" /></span>
+        <div class="label"><strong>Start with Windows</strong></div>
+        <Toggle label="Start with Windows" checked={autostart} onchange={onautostart} />
+      </div>
+      <button class="row disclosure" aria-expanded={advanced} onclick={() => (advanced = !advanced)}>
+        <span class="icon"><Icon name="sliders" /></span>
+        <div class="label"><strong>Advanced</strong></div>
+        <span class="chevron" class:open={advanced}><Icon name="chevronDown" size={16} /></span>
+      </button>
+      {#if advanced}
+        <div class="advanced" transition:slide={{ duration: 200, easing: cubicOut }}>
+          <div class="row">
+            <span class="icon"><Icon name="tray" /></span>
+            <div class="label">
+              <strong>Tray icon</strong>
+              <small>{settings.taskbarWidget ? "Fallback for the widget" : "Lowest, or one per device"}</small>
+            </div>
+            <Segmented
+              label="Tray icon"
+              value={settings.trayMode}
+              options={[
+                ["off", "Off"],
+                ["single", "Lowest"],
+                ["per-device", "Each"],
+              ]}
+              onchange={(v: TrayMode) => patch({ trayMode: v })}
+            />
+          </div>
+          {#if hasG435}
+            <div class="row">
+              <span class="icon"><Icon name="headset" /></span>
+              <div class="label">
+                <strong>Logitech G435</strong>
+                <small>Each check pauses its audio for ~0.5 s</small>
+              </div>
+              <Segmented
+                label="Logitech G435 check interval"
+                value={settings.g435Minutes}
+                options={[
+                  [5, "5m"],
+                  [10, "10m"],
+                  [30, "30m"],
+                  [0, "Off"],
+                ]}
+                onchange={(v) => patch({ g435Minutes: v })}
+              />
+            </div>
+          {/if}
+          <div class="row stacked">
+            <span class="icon"><Icon name="code" /></span>
+            <div class="label">
+              <strong>HeadsetControl</strong>
+              <small>Adds SteelSeries, Corsair, HyperX and more</small>
+              <input
+                type="text"
+                spellcheck="false"
+                placeholder="Search PATH"
+                bind:value={hscPath}
+                onchange={() => patch({ headsetcontrolPath: hscPath.trim() || null })}
+              />
+            </div>
+          </div>
+          {#if hiddenDevices.length}
+            <div class="row stacked">
+              <span class="icon"><Icon name="hide" /></span>
+              <div class="label">
+                <strong>Hidden devices</strong>
+                <ul>
+                  {#each hiddenDevices as h (h.key)}
+                    <li>
+                      <span>{h.name}</span>
+                      <button
+                        class="link"
+                        onclick={() => patch({ hidden: settings.hidden.filter((k) => k !== h.key) })}>Show</button
+                      >
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            </div>
+          {/if}
+        </div>
+      {/if}
+    </div>
   </section>
 
   <footer>
     <span>Juicebar {version}</span>
-    <button class="quit" onclick={onquit}><Icon name="power" size={14} /> Quit</button>
+    <button class="quit" onclick={onquit}><Icon name="power" size={13} /> Quit</button>
   </footer>
 </div>
 
 <style>
   .settings {
     display: grid;
-    gap: 14px;
+    gap: 18px;
+    padding-top: 2px;
   }
   section {
     display: grid;
-    gap: 2px;
+    gap: 7px;
   }
   h3 {
-    margin: 0 0 4px 2px;
-    font-size: 12px;
+    margin: 0 0 0 2px;
+    font-size: 11px;
     font-weight: 600;
-    color: var(--text-2);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-3);
   }
-  .row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 12px;
+  .group {
     background: var(--card);
     border: 1px solid var(--card-border);
-    border-radius: 6px;
+    border-radius: 8px;
+    overflow: hidden;
   }
-  .row.column {
-    flex-direction: column;
-    align-items: stretch;
+
+  /* Rows: fixed icon column, label, control on the right. */
+  .row {
+    display: grid;
+    grid-template-columns: 20px 1fr auto;
+    align-items: center;
+    column-gap: 12px;
+    min-height: 48px;
+    padding: 7px 12px;
+    box-sizing: border-box;
+    transition: opacity 150ms ease;
   }
-  .row.slider {
-    padding-top: 6px;
-    padding-bottom: 8px;
+  .row + .row,
+  .advanced > .row,
+  .row + .advanced {
+    border-top: 1px solid var(--line-soft);
   }
-  .row span:first-child {
+  .row.sub {
+    border-top: none;
+    min-height: 0;
+    padding-top: 0;
+    padding-bottom: 10px;
+  }
+  .row.stacked {
+    align-items: start;
+    padding-top: 11px;
+    padding-bottom: 12px;
+  }
+  .row.stacked .icon {
+    margin-top: 1px;
+  }
+  .row.disabled,
+  .styles.disabled {
+    opacity: 0.4;
+  }
+  .icon {
+    display: grid;
+    place-items: center;
+    color: var(--text-2);
+  }
+  .label {
     display: flex;
     flex-direction: column;
     gap: 1px;
+    min-width: 0;
   }
   strong {
     font-weight: 500;
@@ -194,105 +331,120 @@
   small {
     font-size: 11.5px;
     color: var(--text-2);
-  }
-  .value {
-    font-variant-numeric: tabular-nums;
-    min-width: 34px;
-    text-align: right;
-    font-size: 12.5px;
+    line-height: 1.3;
   }
 
-  .switch {
-    appearance: none;
-    flex: none;
-    width: 40px;
-    height: 20px;
-    border-radius: 10px;
-    border: 1px solid var(--text-2);
-    position: relative;
-    margin: 0;
-    transition: background 120ms;
+  /* Widget style picker. */
+  .styles {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 2px 12px 12px;
+    transition: opacity 150ms ease;
   }
-  .switch::after {
-    content: "";
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--text-2);
-    transition: transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  .style {
+    all: unset;
+    display: grid;
+    gap: 7px;
+    padding: 6px;
+    border-radius: 8px;
+    background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--card-border);
+    transition:
+      box-shadow 140ms ease,
+      background 140ms ease;
   }
-  .switch:checked {
-    background: var(--focus);
-    border-color: var(--focus);
+  .style:not(:disabled):hover {
+    background: var(--control-hover);
   }
-  .switch:checked::after {
-    transform: translateX(20px);
-    background: var(--on-accent);
+  .style.on {
+    box-shadow: inset 0 0 0 2px var(--focus);
   }
-  .switch:focus-visible,
-  select:focus-visible,
-  input[type="range"]:focus-visible {
-    outline: 2px solid var(--focus);
+  .style:focus-visible {
+    outline: 2px solid var(--text);
     outline-offset: 2px;
   }
-
-  input[type="range"] {
-    flex: 1;
-    accent-color: var(--focus);
+  .caption {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2px 1px 3px;
+    font-size: 12px;
+    color: var(--text-2);
   }
-  select,
+  .style.on .caption {
+    color: var(--text);
+    font-weight: 500;
+  }
+  .tick {
+    display: grid;
+    place-items: center;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    color: var(--on-accent);
+    background: var(--focus);
+    transform: scale(0);
+    transition: transform 160ms cubic-bezier(0.3, 1.4, 0.5, 1);
+  }
+  .style.on .tick {
+    transform: scale(1);
+  }
+
+  /* Advanced disclosure. */
+  .disclosure {
+    all: unset;
+    display: grid;
+    grid-template-columns: 20px 1fr auto;
+    align-items: center;
+    column-gap: 12px;
+    min-height: 44px;
+    padding: 7px 12px;
+    box-sizing: border-box;
+    width: 100%;
+    border-top: 1px solid var(--line-soft);
+  }
+  .disclosure:hover {
+    background: var(--control-hover);
+  }
+  .disclosure:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: -2px;
+  }
+  .chevron {
+    display: grid;
+    color: var(--text-2);
+    transition: transform 200ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  .chevron.open {
+    transform: rotate(180deg);
+  }
+
   input[type="text"] {
+    margin-top: 8px;
     font: inherit;
     font-size: 12.5px;
     color: var(--text);
     background: var(--control);
     border: 1px solid var(--card-border);
+    border-bottom-color: var(--text-3);
     border-radius: 5px;
-    padding: 5px 8px;
-  }
-  input[type="text"] {
-    border-bottom: 1px solid var(--text-3);
+    padding: 5px 9px;
     outline: none;
   }
   input[type="text"]:focus {
     border-bottom: 2px solid var(--focus);
+    padding-bottom: 4px;
   }
-  option {
-    background: var(--surface-solid);
+  input[type="text"]::placeholder {
+    color: var(--text-3);
   }
-
-  .segmented {
-    display: inline-flex;
-    padding: 2px;
-    border-radius: 6px;
-    background: var(--control);
-    border: 1px solid var(--card-border);
-  }
-  .segmented button {
-    all: unset;
-    font-size: 12px;
-    padding: 4px 10px;
-    border-radius: 4px;
-    color: var(--text-2);
-  }
-  .segmented button.on {
-    background: var(--card-hover);
-    color: var(--text);
-    box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
-  }
-  .segmented button:focus-visible {
-    outline: 2px solid var(--focus);
-  }
-
   ul {
     list-style: none;
-    margin: 4px 0 0;
+    margin: 6px 0 0;
     padding: 0;
     display: grid;
-    gap: 4px;
+    gap: 2px;
   }
   li {
     display: flex;
@@ -305,23 +457,30 @@
     all: unset;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 5px;
+  }
+  .link {
     color: var(--focus);
-    padding: 2px 4px;
-    border-radius: 4px;
+  }
+  .link:hover,
+  .quit:hover {
+    background: var(--control-hover);
   }
   .link:focus-visible,
   .quit:focus-visible {
     outline: 2px solid var(--focus);
   }
+
   footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-size: 11.5px;
     color: var(--text-3);
-    padding: 0 2px;
+    padding: 0 0 0 2px;
   }
   .quit {
     color: var(--text-2);

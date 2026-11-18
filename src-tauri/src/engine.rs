@@ -84,11 +84,17 @@ fn run(app: AppHandle, rx: Receiver<Cmd>, tx: Sender<Cmd>, providers: ProviderOp
     while app.try_state::<AppState>().is_none() {
         std::thread::sleep(Duration::from_millis(10));
     }
+    let demo = providers.demo;
     let mut monitor = Monitor::new(MonitorOptions { providers, ..Default::default() });
-    monitor.history = load_history(&history_path);
-    let known: Vec<KnownDevice> =
-        std::fs::read(devices_path(&history_path)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
-    monitor.restore(known);
+    if demo {
+        // Fresh, fully populated history every launch (screenshots, UI work).
+        juicebar_core::providers::demo::seed_history(&mut monitor.history, juicebar_core::util::now_secs());
+    } else {
+        monitor.history = load_history(&history_path);
+        let known: Vec<KnownDevice> =
+            std::fs::read(devices_path(&history_path)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+        monitor.restore(known);
+    }
     let mut alerts = Alerts::default();
     // Show last known devices right away, before the first (slower) poll completes.
     if let Some(state) = app.try_state::<AppState>() {

@@ -4,13 +4,13 @@
 use crate::AppState;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
-use tauri::{
-    AppHandle, LogicalSize, Manager, PhysicalPosition, PhysicalSize, Rect, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent,
-};
+use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, Rect, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
 pub const LABEL: &str = "popup";
 const WIDTH: f64 = 380.0;
 pub const DEFAULT_HEIGHT: f64 = 420.0;
+/// Tallest the flyout gets; the settings page always uses it so it opens without a resize.
+pub const MAX_HEIGHT: f64 = 600.0;
 const MARGIN: f64 = 12.0;
 /// Free the webview after it has been hidden this long.
 const DESTROY_AFTER: Duration = Duration::from_secs(45);
@@ -79,13 +79,30 @@ fn place(win: &WebviewWindow, anchor: Option<Anchor>, height: f64) {
         None => (wx + ww - w - margin, wy + wh - h - margin),
     };
     let x = x.clamp(wx + margin, (wx + ww - w - margin).max(wx + margin));
-    // The outer rect includes invisible resize borders on the left/right; offset by
-    // them so the *visible* edge lands on the margin.
-    let border = match (win.outer_size(), win.inner_size()) {
-        (Ok(o), Ok(i)) => (o.width.saturating_sub(i.width) / 2) as i32,
-        _ => 0,
+    // The outer rect includes invisible resize borders on the left/right (and bottom);
+    // offset by them so the *visible* edge lands on the margin.
+    let (dw, dh) = match (win.outer_size(), win.inner_size()) {
+        (Ok(o), Ok(i)) => (o.width.saturating_sub(i.width) as i32, o.height.saturating_sub(i.height) as i32),
+        _ => (0, 0),
     };
-    let _ = win.set_position(PhysicalPosition::new(x - border, y));
+    set_bounds(win, x - dw / 2, y, w + dw, h + dh);
+}
+
+/// Moves and resizes in one step. Two separate calls (size, then position) show an
+/// intermediate frame where the flyout hangs over the taskbar or its edge jumps.
+#[cfg(windows)]
+fn set_bounds(win: &WebviewWindow, x: i32, y: i32, w: i32, h: i32) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_NOACTIVATE, SWP_NOOWNERZORDER, SWP_NOZORDER};
+    let Ok(hwnd) = win.hwnd() else { return };
+    // SAFETY: the handle belongs to a live window owned by this process.
+    let _ = unsafe { SetWindowPos(HWND(hwnd.0 as _), None, x, y, w, h, SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE) };
+}
+
+#[cfg(not(windows))]
+fn set_bounds(win: &WebviewWindow, x: i32, y: i32, w: i32, h: i32) {
+    let _ = win.set_size(PhysicalSize::new(w as u32, h as u32));
+    let _ = win.set_position(PhysicalPosition::new(x, y));
 }
 
 pub fn show(app: &AppHandle, rect: Option<Rect>) {
@@ -154,11 +171,13 @@ pub fn toggle(app: &AppHandle, rect: Option<Rect>) {
 
 /// Resize to fit the content height reported by the UI, keeping the anchor edge.
 pub fn fit(app: &AppHandle, height: f64) {
-    let height = height.clamp(180.0, 640.0);
+    let height = height.clamp(180.0, MAX_HEIGHT).round();
     let state = app.state::<AppState>();
-    *state.popup_height.lock().unwrap() = height;
+    let previous = std::mem::replace(&mut *state.popup_height.lock().unwrap(), height);
+    if previous == height {
+        return;
+    }
     if let Some(win) = app.get_webview_window(LABEL) {
-        let _ = win.set_size(LogicalSize::new(WIDTH, height));
         place(&win, *state.anchor.lock().unwrap(), height);
     }
 }

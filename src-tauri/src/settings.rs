@@ -37,6 +37,8 @@ pub struct Settings {
     /// Custom display names, keyed by device key.
     pub aliases: Vec<(String, String)>,
     pub headsetcontrol_path: Option<String>,
+    /// Minutes between Logitech G435 reads (each pauses its audio briefly); 0 = off.
+    pub g435_minutes: u32,
 }
 
 impl Default for Settings {
@@ -53,6 +55,7 @@ impl Default for Settings {
             hidden: Vec::new(),
             aliases: Vec::new(),
             headsetcontrol_path: None,
+            g435_minutes: 10,
         }
     }
 }
@@ -62,6 +65,9 @@ impl Settings {
         self.low_threshold = self.low_threshold.clamp(5, 50);
         self.poll_seconds = self.poll_seconds.clamp(15, 600);
         self.headsetcontrol_path = self.headsetcontrol_path.filter(|p| !p.trim().is_empty());
+        if self.g435_minutes != 0 {
+            self.g435_minutes = self.g435_minutes.clamp(2, 120);
+        }
         self
     }
 

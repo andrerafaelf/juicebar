@@ -46,6 +46,7 @@ fn provider_options(s: &Settings) -> ProviderOptions {
     ProviderOptions {
         headsetcontrol_path: s.headsetcontrol_path.as_ref().map(PathBuf::from),
         demo: std::env::var_os("JUICEBAR_DEMO").is_some(),
+        g435_interval: (s.g435_minutes > 0).then(|| Duration::from_secs(s.g435_minutes as u64 * 60)),
     }
 }
 
@@ -69,8 +70,12 @@ fn publish(app: &AppHandle, snapshot: Snapshot, settings: Settings) {
 pub(crate) fn on_devices(app: &AppHandle, state: &AppState, mut devices: Vec<DeviceView>, alerts: &mut Alerts) {
     let settings = state.settings.lock().unwrap().clone();
     apply_aliases(&mut devices, &settings);
-    for n in alerts.check(&devices, &settings) {
-        let _ = app.notification().builder().title(n.title).body(n.body).show();
+    let notes = alerts.check(&devices, &settings);
+    // Simulated devices shouldn't raise real notifications.
+    if std::env::var_os("JUICEBAR_DEMO").is_none() {
+        for n in notes {
+            let _ = app.notification().builder().title(n.title).body(n.body).show();
+        }
     }
     let snapshot = Snapshot { devices, updated_at: now_ms() };
     *state.snapshot.lock().unwrap() = snapshot.clone();
@@ -154,7 +159,10 @@ fn save_settings(app: AppHandle, state: State<AppState>, settings: Settings) -> 
     settings::save(&state.settings_path, &settings);
     #[cfg(windows)]
     configure_widget(&settings);
-    if previous.poll_seconds != settings.poll_seconds || previous.headsetcontrol_path != settings.headsetcontrol_path {
+    if previous.poll_seconds != settings.poll_seconds
+        || previous.headsetcontrol_path != settings.headsetcontrol_path
+        || previous.g435_minutes != settings.g435_minutes
+    {
         state.engine.send(engine::Cmd::Configure(provider_options(&settings), Duration::from_secs(settings.poll_seconds as u64)));
     }
     // Re-apply aliases / hidden devices / tray mode right away.
@@ -237,8 +245,10 @@ pub fn run() {
             app_version
         ])
         .setup(move |app| {
-            let config_dir = app.path().app_config_dir()?;
-            let data_dir = app.path().app_data_dir()?;
+            // Demo mode keeps its own settings and state so it never touches real data.
+            let sandbox = if std::env::var_os("JUICEBAR_DEMO").is_some() { "demo" } else { "" };
+            let config_dir = app.path().app_config_dir()?.join(sandbox);
+            let data_dir = app.path().app_data_dir()?.join(sandbox);
             let settings_path = config_dir.join("settings.json");
             let settings = settings::load(&settings_path);
             let engine = engine::spawn(
