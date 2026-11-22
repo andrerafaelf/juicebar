@@ -42,6 +42,8 @@ export const sourceLabel: Record<string, string> = {
   razer: "Razer protocol",
   playstation: "PlayStation report",
   sonix: "SONiX dongle",
+  atk: "ATK / Compx protocol",
+  hyperx: "HyperX protocol",
   headsetcontrol: "HeadsetControl",
   xinput: "XInput",
   bluetooth: "Windows Bluetooth",

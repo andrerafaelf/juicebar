@@ -82,7 +82,9 @@ Measured on Windows 11 with a release build:
 | **Logitech G435** | G435 LIGHTSPEED headset (`046D:0ACB`, `046D:0ADF` dongles) | Vendor bridge to the dongle's radio SoC, battery voltage → % (≈5 % steps). A read pauses the headset audio for ~0.5 s, so it only runs while nothing plays or records through the headset, at most every 10 min by default (configurable, or off) |
 | **Razer** | Wireless mice/keyboards and their dongles | 90-byte feature-report protocol, class `0x07` (battery `0x80`, charging `0x84`) |
 | **Sony** | DualShock 4, DualSense, DualSense Edge (USB + Bluetooth) | Status byte in the input report |
-| **SONiX dongles** | AJAZZ / AULA 2.4 GHz keyboards (`05AC:024F`, `0C45:FEFE`) | 32-byte raw-HID query |
+| **SONiX dongles** | AJAZZ / AULA 2.4 GHz keyboards (`05AC:024F`, `0C45:FEFE`) | 32-byte raw-HID query. These keyboards report no battery over their cable, only through the dongle |
+| **ATK / Compx** | ATK and other Compx-platform mice (`373B:*`), on the cable or their 1K/8K dongles | 17-byte command channel `0xFF02`, read-only GET_BATTERY `0x04` (level, charging). Cable and dongle share the mouse's serial, so they show as one device |
+| **HyperX** | Cloud Alpha Wireless (`03F0:098D`) | Vendor report `0x21` on the dongle: connection, charging and level reads. No HeadsetControl needed |
 | **Xbox** | Controllers on the wireless adapter / USB / Bluetooth, plus headsets plugged into them | XInput |
 | **Windows Bluetooth** | *Any* Bluetooth device Windows knows a battery for: headphones (HFP), BLE mice/keyboards/pens | `DEVPKEY_Bluetooth_Battery` on the device node + direct GATT Battery Service read |
 | **Apple** | AirPods, AirPods Pro/Max, Beats (left / right / case) | BLE proximity-pairing advertisement (only nearby, strong signals) |
@@ -112,6 +114,8 @@ flowchart LR
         P2[Razer] --> M
         P3[PlayStation] --> M
         P4[SONiX] --> M
+        P10[ATK / Compx] --> M
+        P11[HyperX] --> M
         P5[HeadsetControl] --> M
         P6[XInput] --> M
         P7[Bluetooth PnP + GATT] --> M

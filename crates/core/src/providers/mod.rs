@@ -9,10 +9,12 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use std::time::Duration;
 
+pub mod atk;
 pub mod demo;
 pub mod g435;
 pub mod generic_hid;
 pub mod headsetcontrol;
+pub mod hyperx;
 pub mod logitech;
 pub mod playstation;
 pub mod razer;
@@ -55,12 +57,14 @@ impl PollContext<'_> {
 }
 
 /// Every provider id, used to restore persisted devices.
-pub const SOURCE_IDS: [&str; 12] = [
+pub const SOURCE_IDS: [&str; 14] = [
     "logitech-hidpp",
     "g435",
     "razer",
     "playstation",
     "sonix",
+    "atk",
+    "hyperx",
     "headsetcontrol",
     "xinput",
     "bluetooth",
@@ -104,6 +108,9 @@ pub fn default_providers(opts: &ProviderOptions) -> Vec<Box<dyn Provider>> {
         Box::new(razer::Razer::default()),
         Box::new(playstation::PlayStation::default()),
         Box::new(sonix::Sonix::default()),
+        Box::new(atk::Atk::default()),
+        // Before HeadsetControl, which also knows this headset: the native read wins the merge.
+        Box::new(hyperx::HyperX::default()),
         Box::new(headsetcontrol::HeadsetControl::new(opts.headsetcontrol_path.clone())),
     ];
     #[cfg(windows)]
